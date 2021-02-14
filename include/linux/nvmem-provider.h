@@ -31,6 +31,7 @@ struct nvmem_config {
 	int			ncells;
 	bool			read_only;
 	bool			root_only;
+	bool			fram;
 	nvmem_reg_read_t	reg_read;
 	nvmem_reg_write_t	reg_write;
 	int	size;

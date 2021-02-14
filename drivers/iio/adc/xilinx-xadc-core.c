@@ -1150,8 +1150,41 @@ static int xadc_parse_dt(struct iio_dev *indio_dev, struct device_node *np,
 			iio_xadc_channels[num_channels] = xadc_channels[reg + 9];
 			iio_xadc_channels[num_channels].channel = num_channels - 1;
 
-			if (of_property_read_bool(child, "xlnx,bipolar"))
+			if (of_property_read_bool(child, "xlnx,bipolar")) {
 				iio_xadc_channels[num_channels].scan_type.sign = 's';
+			}
+			else {
+				/* NAI: added support for extern temperature */
+			}
+
+			/* 
+			 * NAI: added support for extern temperature populated
+			 * IIO chan spec structure for external temp sensor*
+			 */
+			if (of_property_read_bool(child, "nai,ext_temp")) {
+				iio_xadc_channels[num_channels].type = IIO_TEMP;
+				iio_xadc_channels[num_channels].indexed = 1;
+				/*
+				 * TODO: hardcode ext temp sensor iio chan to 1
+				 * iio chan is used by PS internal temp sensor.
+				 */
+				iio_xadc_channels[num_channels].channel = 1;
+				pr_debug("xadc sign = %c\n", iio_xadc_channels[num_channels].scan_type.sign);
+				iio_xadc_channels[num_channels].scan_type.sign = 'u';
+				iio_xadc_channels[num_channels].info_mask_separate =
+					BIT(IIO_CHAN_INFO_RAW) |
+					BIT(IIO_CHAN_INFO_SCALE) |
+					BIT(IIO_CHAN_INFO_OFFSET);
+				iio_xadc_channels[num_channels].info_mask_shared_by_all =
+					BIT(IIO_CHAN_INFO_SAMP_FREQ);
+				iio_xadc_channels[num_channels].event_spec = xadc_temp_events;
+				iio_xadc_channels[num_channels].num_event_specs =
+					ARRAY_SIZE(xadc_temp_events);
+				iio_xadc_channels[num_channels].scan_type.realbits = 12;
+				iio_xadc_channels[num_channels].scan_type.storagebits = 16;
+				iio_xadc_channels[num_channels].scan_type.shift = 4;
+				iio_xadc_channels[num_channels].scan_type.endianness = IIO_CPU;
+			}
 
 			num_channels++;
 		}

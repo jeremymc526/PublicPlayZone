@@ -21,3 +21,9 @@ config VME_FAKE
 	 provides a virtualised VME Bus for devices with no VME bridge. This
 	 is mainly useful for VME development (in the absence of VME
 	 hardware).
+	 
+config VME_INICORE
+	tristate "IniCore"
+	help
+	 If you say Y here you get support for the IniCore VME bridge
+	 chip.

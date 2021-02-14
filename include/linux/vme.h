@@ -10,6 +10,9 @@ enum vme_resource_type {
 	VME_LM
 };
 
+/* Number of VME interrupt levels */
+#define VME_INT_LEVELS	7
+
 /* VME Address Spaces */
 #define VME_A16		0x1
 #define VME_A24		0x2
@@ -106,6 +109,7 @@ struct vme_dev {
 	struct device dev;
 	struct list_head drv_list;
 	struct list_head bridge_list;
+	void * int_sysfs_entry[VME_INT_LEVELS];
 };
 
 /**
@@ -153,6 +157,7 @@ unsigned int vme_master_rmw(struct vme_resource *, unsigned int, unsigned int,
 	unsigned int, loff_t);
 int vme_master_mmap(struct vme_resource *resource, struct vm_area_struct *vma);
 void vme_master_free(struct vme_resource *);
+int vme_master_reset_window(struct vme_resource *);
 
 struct vme_resource *vme_dma_request(struct vme_dev *, u32);
 struct vme_dma_list *vme_new_dma_list(struct vme_resource *);
@@ -166,7 +171,7 @@ int vme_dma_list_exec(struct vme_dma_list *);
 int vme_dma_list_free(struct vme_dma_list *);
 int vme_dma_free(struct vme_resource *);
 
-int vme_irq_request(struct vme_dev *, int, int,
+int vme_irq_request(struct vme_dev *, int,
 	void (*callback)(int, int, void *), void *);
 void vme_irq_free(struct vme_dev *, int, int);
 int vme_irq_generate(struct vme_dev *, int, int);

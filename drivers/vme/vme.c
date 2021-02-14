@@ -503,6 +503,7 @@ struct vme_resource *vme_master_request(struct vme_dev *vdev, u32 address,
 	struct vme_master_resource *allocated_image = NULL;
 	struct vme_master_resource *master_image = NULL;
 	struct vme_resource *resource = NULL;
+	unsigned long flags;
 
 	bridge = vdev->bridge;
 	if (bridge == NULL) {
@@ -521,18 +522,18 @@ struct vme_resource *vme_master_request(struct vme_dev *vdev, u32 address,
 		}
 
 		/* Find an unlocked and compatible image */
-		spin_lock(&master_image->lock);
+		spin_lock_irqsave(&master_image->lock, flags);
 		if (((master_image->address_attr & address) == address) &&
 			((master_image->cycle_attr & cycle) == cycle) &&
 			((master_image->width_attr & dwidth) == dwidth) &&
 			(master_image->locked == 0)) {
 
 			master_image->locked = 1;
-			spin_unlock(&master_image->lock);
+			spin_unlock_irqrestore(&master_image->lock, flags);
 			allocated_image = master_image;
 			break;
 		}
-		spin_unlock(&master_image->lock);
+		spin_unlock_irqrestore(&master_image->lock, flags);
 	}
 
 	/* Check to see if we found a resource */
@@ -553,9 +554,9 @@ struct vme_resource *vme_master_request(struct vme_dev *vdev, u32 address,
 
 err_alloc:
 	/* Unlock image */
-	spin_lock(&master_image->lock);
+	spin_lock_irqsave(&master_image->lock, flags);
 	master_image->locked = 0;
-	spin_unlock(&master_image->lock);
+	spin_unlock_irqrestore(&master_image->lock, flags);
 err_image:
 err_bus:
 	return NULL;
@@ -838,6 +839,7 @@ EXPORT_SYMBOL(vme_master_mmap);
 void vme_master_free(struct vme_resource *resource)
 {
 	struct vme_master_resource *master_image;
+	unsigned long flags;
 
 	if (resource->type != VME_MASTER) {
 		printk(KERN_ERR "Not a master resource\n");
@@ -852,17 +854,40 @@ void vme_master_free(struct vme_resource *resource)
 	}
 
 	/* Unlock image */
-	spin_lock(&master_image->lock);
+	spin_lock_irqsave(&master_image->lock, flags);
 	if (master_image->locked == 0)
 		printk(KERN_ERR "Image is already free\n");
 
 	master_image->locked = 0;
-	spin_unlock(&master_image->lock);
+	spin_unlock_irqrestore(&master_image->lock, flags);
 
 	/* Free up resource memory */
 	kfree(resource);
 }
 EXPORT_SYMBOL(vme_master_free);
+
+int vme_master_reset_window(struct vme_resource *resource)
+{
+	struct vme_bridge *bridge = find_bridge(resource);
+	struct vme_master_resource *image;
+
+	if (resource->type != VME_MASTER) {
+		printk(KERN_ERR "Not a master resource\n");
+		return -EINVAL;
+	}
+
+	image = list_entry(resource->entry, struct vme_master_resource, list);
+
+	if (bridge->master_reset_window == NULL) {
+		printk(KERN_WARNING "vme_master_reset_window not supported\n");
+		return -EINVAL;
+	}
+
+	pr_debug("image->number:%d\n",image->number);
+
+	return bridge->master_reset_window(image);
+}
+EXPORT_SYMBOL(vme_master_reset_window);
 
 /**
  * vme_dma_request - Request a DMA controller.
@@ -1340,8 +1365,8 @@ void vme_irq_handler(struct vme_bridge *bridge, int level, int statid)
 	void (*call)(int, int, void *);
 	void *priv_data;
 
-	call = bridge->irq[level - 1].callback[statid].func;
-	priv_data = bridge->irq[level - 1].callback[statid].priv_data;
+	call = bridge->irq[level - 1].callback.func;
+	priv_data = bridge->irq[level - 1].callback.priv_data;
 
 	if (call != NULL)
 		call(level, statid, priv_data);
@@ -1367,7 +1392,7 @@ EXPORT_SYMBOL(vme_irq_handler);
  *         function is not supported, -EBUSY if the level/statid combination is
  *         already in use. Hardware specific errors also possible.
  */
-int vme_irq_request(struct vme_dev *vdev, int level, int statid,
+int vme_irq_request(struct vme_dev *vdev, int level,
 	void (*callback)(int, int, void *),
 	void *priv_data)
 {
@@ -1391,15 +1416,15 @@ int vme_irq_request(struct vme_dev *vdev, int level, int statid,
 
 	mutex_lock(&bridge->irq_mtx);
 
-	if (bridge->irq[level - 1].callback[statid].func) {
+	if (bridge->irq[level - 1].callback.func) {
 		mutex_unlock(&bridge->irq_mtx);
 		printk(KERN_WARNING "VME Interrupt already taken\n");
 		return -EBUSY;
 	}
 
 	bridge->irq[level - 1].count++;
-	bridge->irq[level - 1].callback[statid].priv_data = priv_data;
-	bridge->irq[level - 1].callback[statid].func = callback;
+	bridge->irq[level - 1].callback.priv_data = priv_data;
+	bridge->irq[level - 1].callback.func = callback;
 
 	/* Enable IRQ level */
 	bridge->irq_set(bridge, level, 1, 1);
@@ -1418,7 +1443,7 @@ EXPORT_SYMBOL(vme_irq_request);
  *
  * Remove previously attached callback from VME interrupt priority/vector.
  */
-void vme_irq_free(struct vme_dev *vdev, int level, int statid)
+void vme_irq_free(struct vme_dev *vdev, int level)
 {
 	struct vme_bridge *bridge;
 
@@ -1446,8 +1471,8 @@ void vme_irq_free(struct vme_dev *vdev, int level, int statid)
 	if (bridge->irq[level - 1].count == 0)
 		bridge->irq_set(bridge, level, 0, 1);
 
-	bridge->irq[level - 1].callback[statid].func = NULL;
-	bridge->irq[level - 1].callback[statid].priv_data = NULL;
+	bridge->irq[level - 1].callback.func = NULL;
+	bridge->irq[level - 1].callback.priv_data = NULL;
 
 	mutex_unlock(&bridge->irq_mtx);
 }
@@ -1886,8 +1911,8 @@ static int __vme_register_driver_bus(struct vme_driver *drv,
 	unsigned int i;
 	struct vme_dev *vdev;
 	struct vme_dev *tmp;
-
-	for (i = 0; i < ndevs; i++) {
+	/*Fixed: vdev->num start from 1 only*/
+	for (i = 1; i <= ndevs; i++) {
 		vdev = kzalloc(sizeof(struct vme_dev), GFP_KERNEL);
 		if (!vdev) {
 			err = -ENOMEM;

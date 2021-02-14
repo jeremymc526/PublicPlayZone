@@ -1,0 +1,15 @@
+menu "NAI GENERIC I2C"
+
+config NAI_GENERIC_SMBUS
+	tristate "NAI devices Over SMBUS"
+	depends on I2C
+        default y
+	help
+	  This option enables generic i2c devices Over SMBUS
+
+config NAI_GENERIC_I2C
+	tristate "NAI devices Over I2C"
+	depends on NAI_GENERIC_SMBUS
+	help
+	  This option enables generic i2c devices Over I2C
+endmenu

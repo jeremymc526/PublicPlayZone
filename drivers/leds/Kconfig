@@ -695,6 +695,22 @@ config LEDS_NIC78BX
 
 	  To compile this driver as a module, choose M here: the module
 	  will be called leds-nic78bx.
+	  
+config LEDS_NAI_PCA9534A
+	tristate "LED support for PCA9534A I2C chip"
+	depends on LEDS_CLASS
+	depends on I2C
+	help
+	  This option enables support for LEDs connected to the PCA9534A
+	  LED driver chip accessed via the I2C bus. Supported
+	  devices include PCA9534A
+	  
+config LEDS_NAI
+       tristate "LED support for NAI SoC boards"
+       depends on LEDS_CLASS
+       help
+         This option enables support for North Atlantic Industries Inc
+	 LEDs on the NAI platform.
 
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"

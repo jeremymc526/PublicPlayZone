@@ -108,6 +108,7 @@
  */
 struct xilinx_pcie_port {
 	void __iomem *reg_base;
+	void __iomem *cfg_reg_base;
 	u32 irq;
 	unsigned long msi_pages;
 	u8 root_busno;
@@ -189,6 +190,7 @@ static void __iomem *xilinx_pcie_map_bus(struct pci_bus *bus,
 {
 	struct xilinx_pcie_port *port = bus->sysdata;
 	int relbus;
+	void __iomem *reg_base = NULL;
 
 	if (!xilinx_pcie_valid_device(bus, devfn))
 		return NULL;
@@ -196,7 +198,12 @@ static void __iomem *xilinx_pcie_map_bus(struct pci_bus *bus,
 	relbus = (bus->number << ECAM_BUS_NUM_SHIFT) |
 		 (devfn << ECAM_DEV_NUM_SHIFT);
 
-	return port->reg_base + relbus + where;
+	if ((bus->number == port->root_busno) || (port->cfg_reg_base == NULL))
+		reg_base =  (void __iomem *)port->reg_base + relbus + where;
+	else
+		reg_base =  (void __iomem *)port->cfg_reg_base + relbus + where;
+
+	return reg_base;
 }
 
 /* PCIe operations */
@@ -489,6 +496,41 @@ error:
 	return IRQ_HANDLED;
 }
 
+/*** JK ***/
+static irqreturn_t xilinx_pcie_INTA_handler(int irq, void *data)
+{
+	struct xilinx_pcie_port *port = (struct xilinx_pcie_port *)data;
+			   
+	generic_handle_irq(irq_find_mapping(port->leg_domain, 1));
+
+	return IRQ_HANDLED;
+}
+static irqreturn_t xilinx_pcie_INTB_handler(int irq, void *data)
+{
+	struct xilinx_pcie_port *port = (struct xilinx_pcie_port *)data;
+			   
+	generic_handle_irq(irq_find_mapping(port->leg_domain, 2));
+
+	return IRQ_HANDLED;
+}
+static irqreturn_t xilinx_pcie_INTC_handler(int irq, void *data)
+{
+	struct xilinx_pcie_port *port = (struct xilinx_pcie_port *)data;
+			   
+	generic_handle_irq(irq_find_mapping(port->leg_domain, 3));
+
+	return IRQ_HANDLED;
+}
+static irqreturn_t xilinx_pcie_INTD_handler(int irq, void *data)
+{
+	struct xilinx_pcie_port *port = (struct xilinx_pcie_port *)data;
+			   
+	generic_handle_irq(irq_find_mapping(port->leg_domain, 4));
+
+	return IRQ_HANDLED;
+}
+/**********/
+
 /**
  * xilinx_pcie_init_irq_domain - Initialize IRQ domain
  * @port: PCIe port information
@@ -564,6 +606,18 @@ static void xilinx_pcie_init_port(struct xilinx_pcie_port *port)
 		   XILINX_PCIE_REG_RPSC);
 }
 
+static const struct of_device_id xilinx_pcie_of_match[] = {
+	{
+		.compatible = "xlnx,axi-pcie-host-1.00.a",
+		.data = (void *)0,
+	},
+	{
+		.compatible = "nai,pcie-host-1.00.a",
+		.data = (void *)1,
+	},
+	{}
+};
+
 /**
  * xilinx_pcie_parse_dt - Parse Device tree
  * @port: PCIe port information
@@ -577,6 +631,9 @@ static int xilinx_pcie_parse_dt(struct xilinx_pcie_port *port)
 	struct resource regs;
 	const char *type;
 	int err;
+	unsigned int irq;
+	const struct of_device_id *of_id =
+		of_match_device(xilinx_pcie_of_match, dev);
 
 	type = of_get_property(node, "device_type", NULL);
 	if (!type || strcmp(type, "pci")) {
@@ -597,10 +654,54 @@ static int xilinx_pcie_parse_dt(struct xilinx_pcie_port *port)
 	port->irq = irq_of_parse_and_map(node, 0);
 	err = devm_request_irq(dev, port->irq, xilinx_pcie_intr_handler,
 			       IRQF_SHARED | IRQF_NO_THREAD,
-			       "xilinx-pcie", port);
+			       "xilinx-pcie-MSI", port);
 	if (err) {
-		dev_err(dev, "unable to request irq %d\n", port->irq);
+		dev_err(dev, "unable to request MSI irq %d\n", port->irq);
 		return err;
+	}
+
+	if ((int)of_id->data == 1) {
+		err = of_address_to_resource(node, 1, &regs);
+		if (err) {
+			dev_err(dev, "missing cfg \"reg\" property\n");
+			return err;
+		}
+
+		port->cfg_reg_base = devm_pci_remap_cfg_resource(dev, &regs);
+		if (IS_ERR(port->cfg_reg_base))
+			return PTR_ERR(port->cfg_reg_base);
+
+		irq = irq_of_parse_and_map(node, 1);
+		err = devm_request_irq(dev, irq, xilinx_pcie_INTA_handler,
+				       IRQF_SHARED, "xilinx-pcie-INTA", port);
+		if (err) {
+			dev_err(dev, "unable to request INTA irq %d\n", irq);
+			return err;
+		}
+
+		irq = irq_of_parse_and_map(node, 2);
+		err = devm_request_irq(dev, irq, xilinx_pcie_INTB_handler,
+				       IRQF_SHARED, "xilinx-pcie-INTB", port);
+		if (err) {
+			dev_err(dev, "unable to request INTB irq %d\n", irq);
+			return err;
+		}
+
+		irq = irq_of_parse_and_map(node, 3);
+		err = devm_request_irq(dev, irq, xilinx_pcie_INTC_handler,
+				       IRQF_SHARED, "xilinx-pcie-INTC", port);
+		if (err) {
+			dev_err(dev, "unable to request INTC irq %d\n", irq);
+			return err;
+		}
+
+		irq = irq_of_parse_and_map(node, 4);
+		err = devm_request_irq(dev, irq, xilinx_pcie_INTD_handler,
+				       IRQF_SHARED, "xilinx-pcie-INTD", port);
+		if (err) {
+			dev_err(dev, "unable to request INTD irq %d\n", irq);
+			return err;
+		}
 	}
 
 	return 0;
@@ -687,11 +788,6 @@ error:
 	pci_free_resource_list(&res);
 	return err;
 }
-
-static const struct of_device_id xilinx_pcie_of_match[] = {
-	{ .compatible = "xlnx,axi-pcie-host-1.00.a", },
-	{}
-};
 
 static struct platform_driver xilinx_pcie_driver = {
 	.driver = {

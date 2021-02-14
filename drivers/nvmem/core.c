@@ -44,6 +44,7 @@ struct nvmem_device {
 	void *priv;
 };
 
+#define FLAG_FRAM		BIT(1)
 #define FLAG_COMPAT		BIT(0)
 
 struct nvmem_cell {
@@ -411,7 +412,7 @@ static int nvmem_setup_compat(struct nvmem_device *nvmem,
 		nvmem->eeprom = bin_attr_ro_root_nvmem;
 	else
 		nvmem->eeprom = bin_attr_rw_root_nvmem;
-	nvmem->eeprom.attr.name = "eeprom";
+	nvmem->eeprom.attr.name = nvmem->flags & FLAG_FRAM ? "fram" : "eeprom";
 	nvmem->eeprom.size = nvmem->size;
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 	nvmem->eeprom.attr.key = &eeprom_lock_key;
@@ -471,6 +472,8 @@ struct nvmem_device *nvmem_register(const struct nvmem_config *config)
 	nvmem->priv = config->priv;
 	nvmem->reg_read = config->reg_read;
 	nvmem->reg_write = config->reg_write;
+	if (config->fram)
+		nvmem->flags |= FLAG_FRAM;
 	np = config->dev->of_node;
 	nvmem->dev.of_node = np;
 	dev_set_name(&nvmem->dev, "%s%d",

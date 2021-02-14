@@ -1,0 +1,8 @@
+comment "VME Device Drivers"
+
+config NAI_VME_USER
+	tristate "NAI VME user space access driver"
+	help
+	  If you say Y here you want to be able to access VME windows.
+
+

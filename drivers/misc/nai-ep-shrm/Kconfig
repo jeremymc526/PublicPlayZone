@@ -1,0 +1,8 @@
+menu "NAI EP SHRM Support"
+ config NAI_EP_SHRM
+	tristate "NAI end-point share memory driver"
+        help
+          This ia NAI board specific device driver.
+          This device driver supports read/write to share block of congtiguous memory
+          between NAI SBC via PCIe/VME/cPCI
+endmenu

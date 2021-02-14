@@ -59,6 +59,12 @@ obj-$(CONFIG_CXL_BASE)		+= cxl/
 obj-$(CONFIG_ASPEED_LPC_CTRL)	+= aspeed-lpc-ctrl.o
 obj-$(CONFIG_ASPEED_LPC_SNOOP)	+= aspeed-lpc-snoop.o
 obj-$(CONFIG_PCI_ENDPOINT_TEST)	+= pci_endpoint_test.o
+obj-$(CONFIG_NAI_SERDES)	+= nai-serdes.o
+nai-serdes-objs			:= nai_serdes_utils.o nai_serdes_oper.o nai_serdes_config.o nai_serdes.o
+obj-$(CONFIG_NAI_MB_FPGA_TOP_CFG)	+= nai_mb_fpga_top_cfg.o
+obj-$(CONFIG_NAI_PCI_DEVICE)	+= nai-pci-device/
+obj-$(CONFIG_NAI_GENERIC_I2C)	+= nai-generic-i2c/
+obj-$(CONFIG_NAI_EP_SHRM)	+= nai-ep-shrm/
 
 lkdtm-$(CONFIG_LKDTM)		+= lkdtm_core.o
 lkdtm-$(CONFIG_LKDTM)		+= lkdtm_bugs.o

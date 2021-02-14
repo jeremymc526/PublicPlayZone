@@ -23,6 +23,12 @@ struct vme_master_resource {
 	u32 width_attr;
 	struct resource bus_resource;
 	void __iomem *kern_base;
+	/*selected aspace*/
+	u32 address_sel;
+	/*selected cycle*/
+	u32 cycle_sel;
+	/*selected data width*/
+	u32 width_sel;
 };
 
 struct vme_slave_resource {
@@ -94,7 +100,7 @@ struct vme_callback {
 
 struct vme_irq {
 	int count;
-	struct vme_callback callback[VME_NUM_STATUSID];
+	struct vme_callback callback;
 };
 
 /* Allow 16 characters for name (including null character) */
@@ -146,6 +152,7 @@ struct vme_bridge {
 		loff_t);
 	unsigned int (*master_rmw) (struct vme_master_resource *, unsigned int,
 		unsigned int, unsigned int, loff_t);
+        int (*master_reset_window) (struct vme_master_resource *);
 
 	/* DMA Functions */
 	int (*dma_list_add) (struct vme_dma_list *, struct vme_dma_attr *,

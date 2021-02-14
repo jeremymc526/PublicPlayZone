@@ -1,0 +1,11 @@
+menu "NAI PCI Device support"
+
+config NAI_PCI_DEVICE
+	tristate "NAI PCI Device"
+	select CONFIG_PCI
+	help
+	  This option to enable NAI PCI Device Support.
+
+	  If unsure, say N.
+
+endmenu

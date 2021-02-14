@@ -529,6 +529,25 @@ config XILINX_TRAFGEN
 	  their requirements.
 
 	  If unsure, say N
+	  
+config NAI_MB_FPGA_TOP_CFG
+       tristate "NAI Motherboard TOP FPGA"
+       help
+         This option enables device driver support for reading and writing
+	 to motherboard fpga registers from the ARM on the motherboard.
+
+config NAI_SERDES
+       tristate "NAI SERDES"
+       help
+         This option enables device deriver support for reading and writing
+	 to modules from the PS on the motherboard.
+
+#config NAI_EP_SHRM
+#	tristate "NAI end-point share memory driver"
+#       help
+#         This ia NAI board specific device driver. 
+#         This device driver supports read/write to share block of congtiguous memory 
+#         between NAI SBC via PCIe/VME/cPCI 
 
 source "drivers/misc/jesd204b/Kconfig"
 source "drivers/misc/c2port/Kconfig"
@@ -543,4 +562,7 @@ source "drivers/misc/mic/Kconfig"
 source "drivers/misc/genwqe/Kconfig"
 source "drivers/misc/echo/Kconfig"
 source "drivers/misc/cxl/Kconfig"
+source "drivers/misc/nai-pci-device/Kconfig"
+source "drivers/misc/nai-ep-shrm/Kconfig"
+source "drivers/misc/nai-generic-i2c/Kconfig"
 endmenu

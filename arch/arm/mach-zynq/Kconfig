@@ -30,6 +30,22 @@ config XILINX_PREFETCH
 	  in many cases. This may not always be the best performance depending on
 	  the usage.
 
+config NAI_XILINX_QSPI_RESET_WR
+	bool "Reset QPSI before software reset"
+	help
+	  This option enables the NAI workround for a bootrom error after software
+	  reset with 32MB QSPI flash.
+
+config NAI_XILINX_QSPI_RESET_WR_GPIO_7
+	bool "Use GPIO 7 to reset QSPI chip"
+	help
+	  select GPIO 7 to reset QSPI chip
+
+config NAI_XILINX_QSPI_RESET_WR_GPIO
+	int
+	default 7 if NAI_XILINX_QSPI_RESET_WR_GPIO_7
+	default 9
+
 endmenu
 
 endif

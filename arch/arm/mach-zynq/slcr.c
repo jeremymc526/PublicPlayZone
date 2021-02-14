@@ -20,6 +20,8 @@
 #include <linux/of_address.h>
 #include <linux/regmap.h>
 #include <linux/clk/zynq.h>
+#include <linux/gpio.h>
+#include <linux/delay.h>
 #include "common.h"
 
 /* register offsets */
@@ -41,6 +43,27 @@
 
 void __iomem *zynq_slcr_base;
 static struct regmap *zynq_slcr_regmap;
+
+#ifdef CONFIG_NAI_XILINX_QSPI_RESET_WR
+static void nai_zynq_qspi_reset(void) {
+	//Note: 5/16/2017 The QSPI reset GPIO# is set in the kernel config
+	u32 qspiRstpin = CONFIG_NAI_XILINX_QSPI_RESET_WR_GPIO;
+	int ret = 0;
+
+	ret = gpio_request(qspiRstpin, "QSPIReset");
+	if (ret) {
+		pr_err("Unable to request GPIO %d \n", qspiRstpin);
+		return;
+	}
+	gpio_direction_output(qspiRstpin, 1);
+
+	gpio_set_value(qspiRstpin, 0);
+	udelay(1000);
+	gpio_set_value(qspiRstpin, 1);
+
+	pr_debug("Reset QSPI %d\n", qspiRstpin);
+}
+#endif /*CONFIG_NAI_XILINX_QSPI_RESET_WR*/
 
 /**
  * zynq_slcr_write - Write to a register in SLCR block
@@ -110,6 +133,10 @@ int zynq_slcr_system_restart(struct notifier_block *nb,
 			     unsigned long action, void *data)
 {
 	u32 reboot;
+	
+#ifdef CONFIG_NAI_XILINX_QSPI_RESET_WR
+	nai_zynq_qspi_reset();
+#endif
 
 	/*
 	 * Clear 0x0F000000 bits of reboot status register to workaround

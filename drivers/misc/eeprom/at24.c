@@ -162,6 +162,8 @@ static const struct i2c_device_id at24_ids[] = {
 				AT24_FLAG_SERIAL |
 				AT24_FLAG_READONLY) },
 	{ "24c64",	AT24_DEVICE_MAGIC(65536 / 8,	AT24_FLAG_ADDR16) },
+	{ "24cl64",	AT24_DEVICE_MAGIC(65536 / 8,
+				AT24_FLAG_ADDR16 | AT24_FLAG_FRAM) },
 	{ "24cs64",	AT24_DEVICE_MAGIC(16,
 				AT24_FLAG_ADDR16 |
 				AT24_FLAG_SERIAL |
@@ -753,6 +755,7 @@ static int at24_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	at24->nvmem_config.dev = &client->dev;
 	at24->nvmem_config.read_only = !writable;
 	at24->nvmem_config.root_only = true;
+	at24->nvmem_config.fram = chip.flags & AT24_FLAG_FRAM ? true : false;
 	at24->nvmem_config.owner = THIS_MODULE;
 	at24->nvmem_config.compat = true;
 	at24->nvmem_config.base_dev = &client->dev;
@@ -770,8 +773,9 @@ static int at24_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		goto err_clients;
 	}
 
-	dev_info(&client->dev, "%u byte %s EEPROM, %s, %u bytes/write\n",
+	dev_info(&client->dev, "%u byte %s %s, %s, %u bytes/write\n",
 		chip.byte_len, client->name,
+		chip.flags & AT24_FLAG_FRAM ? "FRAM" : "EEPROM",
 		writable ? "writable" : "read-only", at24->write_max);
 	if (use_smbus == I2C_SMBUS_WORD_DATA ||
 	    use_smbus == I2C_SMBUS_BYTE_DATA) {
